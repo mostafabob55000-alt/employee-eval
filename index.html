@@ -20,6 +20,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{text-align:right
 .actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{width:auto;padding:7px 10px}.badge{display:inline-block;background:#eef1ff;color:#293fa9;padding:4px 8px;border-radius:999px;font-size:12px}
 @media(max-width:600px){header{padding:18px}h1{font-size:20px}.card{padding:14px}.listitem{align-items:flex-start;flex-direction:column}table{display:block;overflow:auto}.tabs button{flex:1}}
 button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none}#toast.show{opacity:1}
+.tbl{width:100%;border-collapse:collapse;min-width:420px}.tbl th,.tbl td{padding:10px;border-bottom:1px solid var(--border);text-align:right}.tbl th{color:var(--muted);font-size:13px}.tbl tr.me{background:#eef2ff;font-weight:700}.medal{font-size:22px}.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.bar button{width:auto;padding:9px 14px}.bar input{width:auto;min-width:160px;flex:1}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -36,7 +37,7 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 <div class="card row" style="align-items:center"><div><strong id="welcome"></strong><div class="muted small" id="role"></div></div><button class="ghost" style="max-width:130px" onclick="logout()">تسجيل خروج</button></div>
 <div id="adminPanel" class="hidden">
 <div class="tabs"><button onclick="showAdmin('overview')">الرئيسية</button><button onclick="showAdmin('employees')">الموظفون</button><button onclick="showAdmin('branches')">الفروع</button><button onclick="showAdmin('evaluate')">إضافة تقييم</button><button onclick="showAdmin('history')">سجل تقييماتي</button><button onclick="showAdmin('settings')">الإعدادات</button></div>
-<div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><h3>ترتيب جميع الموظفين</h3><div id="ranking"></div><h3>ترتيب جميع الفروع</h3><div id="branchRanking"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
+<div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><div id="boardAdmin"></div><h3>ترتيب جميع الموظفين</h3><div id="ranking"></div><h3>ترتيب جميع الفروع</h3><div id="branchRanking"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
 <div id="employees" class="card hidden"><h2>إدارة الموظفين</h2><div class="row"><div><label>اسم الموظف</label><input id="newName" placeholder="الاسم"></div><div><label>Username</label><input id="newUser" placeholder="اسم الدخول"></div><div><label>Password (6 أحرف على الأقل)</label><input id="newPass" placeholder="كلمة المرور"></div><div><label>الفرع</label><select id="newBranch"></select></div></div><button style="margin-top:10px" onclick="addEmployee()">إضافة موظف</button><div id="employeeList"></div></div>
 <div id="branches" class="card hidden"><h2>إدارة الفروع</h2><div class="row"><div><label>اسم الفرع الجديد</label><input id="newBranchName" placeholder="اسم الفرع"></div><div style="align-self:end"><button onclick="addBranch()">إضافة فرع</button></div></div><div id="branchList"></div></div>
 <div id="evaluate" class="card hidden"><h2>إضافة تقييم</h2><div class="row"><div><label>نوع التقييم</label><select id="evalType" onchange="updateEvalTarget()"><option value="employee">موظف</option><option value="branch">فرع</option></select></div><div><label>الموظف / الفرع</label><select id="evalTarget"></select></div><div><label>النقاط (+ أو -)</label><input id="points" type="number" value="5"></div></div><label>سبب التقييم</label><input id="reason" placeholder="مثلاً: الالتزام / خطأ / إنجاز"><button style="margin-top:10px" onclick="addEvaluation()">حفظ التقييم</button></div>
@@ -45,7 +46,7 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 </div>
 <div id="employeePanel" class="hidden">
 <div class="tabs"><button onclick="showEmployee('empOverview')">الترتيب العام</button><button onclick="showEmployee('empHistory')">تقييماتي</button></div>
-<div id="empOverview" class="card"><h2>ترتيب الموظفين والفروع</h2><p class="notice small">حساب مشاهدة فقط: يمكنك الاطلاع على ترتيب الجميع ونتائج الفروع، ولا يمكنك إضافة أو تعديل أو حذف أي تقييم.</p><h3>ترتيب جميع الموظفين</h3><div id="employeeRankingPublic"></div><h3>ترتيب جميع الفروع</h3><div id="branchRankingPublic"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistoryEmployee"></div></div>
+<div id="empOverview" class="card"><h2>ترتيب الموظفين والفروع</h2><p class="notice small">حساب مشاهدة فقط: يمكنك الاطلاع على ترتيب الجميع ونتائج الفروع، ولا يمكنك إضافة أو تعديل أو حذف أي تقييم.</p><div id="boardEmp"></div><h3>ترتيب جميع الموظفين</h3><div id="employeeRankingPublic"></div><h3>ترتيب جميع الفروع</h3><div id="branchRankingPublic"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistoryEmployee"></div></div>
 <div id="empHistory" class="card hidden"><h2>تقييماتي</h2><div class="row"><div><div class="muted">إجمالي النقاط</div><div class="stat" id="myScore">100</div></div><div><div class="muted">تغييرات اليوم</div><div class="stat" id="myTodayChange">0</div></div></div><h3>سجل اليوم</h3><div id="myToday"></div><h3>السجل السابق</h3><div id="myHistory"></div></div>
 </div>
 </section>
@@ -98,7 +99,7 @@ function evBranch(e){if(e.type!=='employee')return '—';let p=db.profiles.find(
 function pts(e){let n=Number(e.points);return `<strong class="${n>=0?'positive':'negative'}">${n>0?'+':''}${n} نقطة</strong>`}
 function publicHistoryHtml(){return db.events.map(e=>`<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div>${pts(e)}</div>`).join('')||'<p class="muted">لا توجد تقييمات حتى الآن.</p>'}
 function adminEventHtml(e){return `<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div><div>${pts(e)}<div class="actions"><button class="secondary" onclick="editEvaluation('${e.id}')">تعديل</button><button class="danger" onclick="deleteEvaluation('${e.id}')">حذف</button></div></div></div>`}
-function refreshAdmin(){
+function refreshAdmin(){renderBoard('boardAdmin');
  if(!current||current.role!=='admin')return;
  $('employeeCount').textContent=emps().length;$('branchCount').textContent=db.branches.length;
  $('eventCount').textContent=db.events.filter(e=>e.day===today()).length;
@@ -175,7 +176,7 @@ async function deleteEvaluation(id){
  const {error}=await sb.from('events').delete().eq('id',id);
  if(error)return alert('تعذر الحذف');await loadAll();refreshAdmin()}
 function eventHtml(e){return `<div class="listitem"><div><strong>${esc(e.reason)}</strong><div class="muted small">${esc(e.day)} — ${esc(fmtTime(e.created_at))}</div></div>${pts(e)}</div>`}
-function refreshEmployee(){
+function refreshEmployee(){renderBoard('boardEmp');
  if(!current||current.role!=='employee')return;
  $('employeeRankingPublic').innerHTML=rankingHtml();$('branchRankingPublic').innerHTML=branchesHtml();$('publicHistoryEmployee').innerHTML=publicHistoryHtml();
  let mine=db.events.filter(e=>e.type==='employee'&&e.emp_id===current.id),td=mine.filter(e=>e.day===today()),old=mine.filter(e=>e.day!==today());
@@ -187,6 +188,44 @@ async function changeAdminPass(){
  if(!isAdmin())return;let p=$('adminNewPass').value.trim();if(p.length<6)return alert('كلمة المرور 6 أحرف على الأقل');
  const {error}=await sb.auth.updateUser({password:p});
  if(error)return alert('تعذر التغيير: '+error.message);$('adminNewPass').value='';toast('تم تغيير كلمة المرور')}
+
+// ===== جدول المراكز حسب الفترة =====
+let board={period:'day',date:today()};
+const periodNames={day:'يومي',week:'أسبوعي',month:'شهري',year:'سنوي'};
+const pad=n=>String(n).padStart(2,'0');
+const fmtD=d=>d.getUTCFullYear()+'-'+pad(d.getUTCMonth()+1)+'-'+pad(d.getUTCDate());
+function parseD(ds){const [y,m,d]=ds.split('-').map(Number);return new Date(Date.UTC(y,m-1,d))}
+function range(period,ds){
+ const dt=parseD(ds),y=dt.getUTCFullYear(),m=dt.getUTCMonth();
+ if(period==='day')return[ds,ds];
+ if(period==='week'){const off=(dt.getUTCDay()+1)%7,st=new Date(dt);st.setUTCDate(dt.getUTCDate()-off);const en=new Date(st);en.setUTCDate(st.getUTCDate()+6);return[fmtD(st),fmtD(en)]}
+ if(period==='month')return[fmtD(new Date(Date.UTC(y,m,1))),fmtD(new Date(Date.UTC(y,m+1,0)))];
+ return[y+'-01-01',y+'-12-31']}
+function standings(period,ds){
+ const [a,b]=range(period,ds);
+ const rows=emps().map(e=>({e,p:db.events.filter(x=>x.type==='employee'&&x.emp_id===e.id&&x.day>=a&&x.day<=b).reduce((t,x)=>t+Number(x.points||0),0)}));
+ rows.sort((x,y)=>y.p-x.p||x.e.name.localeCompare(y.e.name,'ar'));
+ let r=0;rows.forEach((x,i)=>{if(i===0||x.p!==rows[i-1].p)r=i+1;x.rank=r});
+ return{rows,a,b}}
+function setBoard(k){board.period=k;renderBoard('boardEmp');renderBoard('boardAdmin')}
+function setBoardDate(v){if(!v)return;board.date=v;renderBoard('boardEmp');renderBoard('boardAdmin')}
+function shiftBoard(dir){
+ const d=parseD(board.date);
+ if(board.period==='day')d.setUTCDate(d.getUTCDate()+dir);
+ else if(board.period==='week')d.setUTCDate(d.getUTCDate()+7*dir);
+ else if(board.period==='month')d.setUTCMonth(d.getUTCMonth()+dir);
+ else d.setUTCFullYear(d.getUTCFullYear()+dir);
+ setBoardDate(fmtD(d))}
+function renderBoard(id){
+ const box=$(id);if(!box||!current)return;
+ const {rows,a,b}=standings(board.period,board.date);
+ const medal=r=>r.p>0&&r.rank<=3?['🥇','🥈','🥉'][r.rank-1]:'';
+ const tabs=Object.entries(periodNames).map(([k,v])=>`<button class="${board.period===k?'':'secondary'}" onclick="setBoard('${k}')">${v}</button>`).join('');
+ let mine='';
+ if(current.role==='employee'){
+  mine='<div class="row">'+['day','week','month'].map(k=>{const s=standings(k,board.date),m=s.rows.find(x=>x.e.id===current.id);return `<div class="card"><div class="muted small">مركزك ${periodNames[k]}</div><div class="stat">${m?(medal(m)||'')+' '+m.rank:'—'}<span class="muted small"> من ${s.rows.length}</span></div><div class="muted small">${m?m.p:0} نقطة</div></div>`}).join('')+'</div>'}
+ const body=rows.map(r=>`<tr class="${current.id===r.e.id?'me':''}"><td><span class="medal">${medal(r)}</span> ${r.rank}</td><td>${esc(r.e.name)}</td><td>${esc(branchName(r.e.branch_id))}</td><td class="${r.p>=0?'positive':'negative'}">${r.p>0?'+':''}${r.p}</td></tr>`).join('');
+ box.innerHTML=`<h3>🏆 جدول المراكز</h3><div class="bar">${tabs}</div><div class="bar"><button class="ghost" onclick="shiftBoard(-1)">السابق ▶</button><input type="date" value="${board.date}" onchange="setBoardDate(this.value)"><button class="ghost" onclick="shiftBoard(1)">◀ التالي</button><button class="secondary" onclick="setBoardDate(today())">اليوم</button></div><p class="muted small">الفترة: من ${a} إلى ${b} — الترتيب حسب النقاط المكتسبة في الفترة فقط.</p>${mine}<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>المركز</th><th>الموظف</th><th>الفرع</th><th>نقاط الفترة</th></tr></thead><tbody>${body||'<tr><td colspan="4" class="muted">لا يوجد موظفون.</td></tr>'}</tbody></table></div>`}
 (async()=>{const {data}=await sb.auth.getSession();if(data.session)await startSession(data.session.user)})();
 setInterval(async()=>{if(current){await loadAll();current.role==='admin'?refreshAdmin():refreshEmployee()}},30000);
 </script>
