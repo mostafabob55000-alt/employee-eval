@@ -21,6 +21,10 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{text-align:right
 @media(max-width:600px){header{padding:18px}h1{font-size:20px}.card{padding:14px}.listitem{align-items:flex-start;flex-direction:column}table{display:block;overflow:auto}.tabs button{flex:1}}
 button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none}#toast.show{opacity:1}
 .tbl{width:100%;border-collapse:collapse;min-width:420px}.tbl th,.tbl td{padding:10px;border-bottom:1px solid var(--border);text-align:right}.tbl th{color:var(--muted);font-size:13px}.tbl tr.me{background:#eef2ff;font-weight:700}.medal{font-size:22px}.bar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:10px 0}.bar button{width:auto;padding:9px 14px}.bar input{width:auto;min-width:160px;flex:1}
+.cols{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}@media(max-width:800px){.cols{grid-template-columns:1fr}}
+.rk{display:flex;align-items:center;gap:12px;border:1px solid var(--border);border-radius:14px;padding:12px;margin:8px 0;background:#fff}.rkn{min-width:64px;font-weight:800;font-size:18px;white-space:nowrap;text-align:center}.rki{flex:1}.rks{font-weight:800;white-space:nowrap}
+.rk1{background:linear-gradient(90deg,#fff6d6,#fff);border-color:#e8c547}.rk2{background:linear-gradient(90deg,#eef0f4,#fff);border-color:#b8bec9}.rk3{background:linear-gradient(90deg,#fbece0,#fff);border-color:#cd8a52}
+.reward{display:inline-block;margin-top:4px;background:#e9f7ef;color:#116b43;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -36,17 +40,18 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 <section id="app" class="hidden">
 <div class="card row" style="align-items:center"><div><strong id="welcome"></strong><div class="muted small" id="role"></div></div><button class="ghost" style="max-width:130px" onclick="logout()">تسجيل خروج</button></div>
 <div id="adminPanel" class="hidden">
-<div class="tabs"><button onclick="showAdmin('overview')">الرئيسية</button><button onclick="showAdmin('employees')">الموظفون</button><button onclick="showAdmin('branches')">الفروع</button><button onclick="showAdmin('evaluate')">إضافة تقييم</button><button onclick="showAdmin('history')">سجل تقييماتي</button><button onclick="showAdmin('settings')">الإعدادات</button></div>
-<div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><div id="boardAdmin"></div><h3>ترتيب جميع الموظفين</h3><div id="ranking"></div><h3>ترتيب جميع الفروع</h3><div id="branchRanking"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
+<div class="tabs"><button onclick="showAdmin('overview')">الرئيسية</button><button onclick="showAdmin('employees')">الموظفون</button><button onclick="showAdmin('branches')">الفروع</button><button onclick="showAdmin('evaluate')">إضافة تقييم</button><button onclick="showAdmin('history')">سجل تقييماتي</button><button onclick="showAdmin('rewards')">🎁 المكافآت</button><button onclick="showAdmin('settings')">الإعدادات</button></div>
+<div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><div id="boardAdmin"></div><div class="cols"><div><h3>🏅 ترتيب الموظفين</h3><div id="ranking"></div></div><div><h3>🏢 ترتيب الفروع</h3><div id="branchRanking"></div></div></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
 <div id="employees" class="card hidden"><h2>إدارة الموظفين</h2><div class="row"><div><label>اسم الموظف</label><input id="newName" placeholder="الاسم"></div><div><label>Username</label><input id="newUser" placeholder="اسم الدخول"></div><div><label>Password (6 أحرف على الأقل)</label><input id="newPass" placeholder="كلمة المرور"></div><div><label>الفرع</label><select id="newBranch"></select></div></div><button style="margin-top:10px" onclick="addEmployee()">إضافة موظف</button><div id="employeeList"></div></div>
 <div id="branches" class="card hidden"><h2>إدارة الفروع</h2><div class="row"><div><label>اسم الفرع الجديد</label><input id="newBranchName" placeholder="اسم الفرع"></div><div style="align-self:end"><button onclick="addBranch()">إضافة فرع</button></div></div><div id="branchList"></div></div>
 <div id="evaluate" class="card hidden"><h2>إضافة تقييم</h2><div class="row"><div><label>نوع التقييم</label><select id="evalType" onchange="updateEvalTarget()"><option value="employee">موظف</option><option value="branch">فرع</option></select></div><div><label>الموظف / الفرع</label><select id="evalTarget"></select></div><div><label>النقاط (+ أو -)</label><input id="points" type="number" value="5"></div></div><label>سبب التقييم</label><input id="reason" placeholder="مثلاً: الالتزام / خطأ / إنجاز"><button style="margin-top:10px" onclick="addEvaluation()">حفظ التقييم</button></div>
 <div id="history" class="card hidden"><h2>سجل تقييماتي (الأدمن)</h2><p class="muted small">التقييمات التي أنشأتها مرتبة من الأحدث للأقدم. يمكنك تعديلها أو حذفها.</p><div id="adminHistory"></div></div>
+<div id="rewards" class="card hidden"><h2>🎁 المكافآت</h2><p class="muted small">حدد مكافأة كل مركز، وهتظهر جنب المركز في الترتيب لكل المستخدمين.</p><div class="row"><div><label>الترتيب</label><select id="rwScope"><option value="employee">ترتيب الموظفين</option><option value="branch">ترتيب الفروع</option></select></div><div><label>المركز</label><select id="rwRank"><option value="1">المركز 1</option><option value="2">المركز 2</option><option value="3">المركز 3</option><option value="4">المركز 4</option><option value="5">المركز 5</option><option value="6">المركز 6</option><option value="7">المركز 7</option><option value="8">المركز 8</option><option value="9">المركز 9</option><option value="10">المركز 10</option></select></div><div><label>نوع المكافأة</label><select id="rwKind"><option value="money">💰 فلوس</option><option value="gift">🎁 جائزة</option></select></div><div><label>المكافأة</label><input id="rwValue" placeholder="مثلاً: 500 جنيه أو سماعة"></div></div><button style="margin-top:10px" onclick="saveReward()">حفظ المكافأة</button><div id="rewardList"></div></div>
 <div id="settings" class="card hidden"><h2>إعدادات الأدمن</h2><div class="row"><div><label>كلمة المرور الجديدة</label><input id="adminNewPass" type="password"></div><div style="align-self:end"><button onclick="changeAdminPass()">تغيير كلمة المرور</button></div></div><p class="notice small">البيانات محفوظة على سيرفر Supabase، فمش بتضيع لو مسحت بيانات المتصفح.</p></div>
 </div>
 <div id="employeePanel" class="hidden">
 <div class="tabs"><button onclick="showEmployee('empOverview')">الترتيب العام</button><button onclick="showEmployee('empHistory')">تقييماتي</button></div>
-<div id="empOverview" class="card"><h2>ترتيب الموظفين والفروع</h2><p class="notice small">حساب مشاهدة فقط: يمكنك الاطلاع على ترتيب الجميع ونتائج الفروع، ولا يمكنك إضافة أو تعديل أو حذف أي تقييم.</p><div id="boardEmp"></div><h3>ترتيب جميع الموظفين</h3><div id="employeeRankingPublic"></div><h3>ترتيب جميع الفروع</h3><div id="branchRankingPublic"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistoryEmployee"></div></div>
+<div id="empOverview" class="card"><h2>ترتيب الموظفين والفروع</h2><p class="notice small">حساب مشاهدة فقط: يمكنك الاطلاع على ترتيب الجميع ونتائج الفروع، ولا يمكنك إضافة أو تعديل أو حذف أي تقييم.</p><div id="boardEmp"></div><div class="cols"><div><h3>🏅 ترتيب الموظفين</h3><div id="employeeRankingPublic"></div></div><div><h3>🏢 ترتيب الفروع</h3><div id="branchRankingPublic"></div></div></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistoryEmployee"></div></div>
 <div id="empHistory" class="card hidden"><h2>تقييماتي</h2><div class="row"><div><div class="muted">إجمالي النقاط</div><div class="stat" id="myScore">100</div></div><div><div class="muted">تغييرات اليوم</div><div class="stat" id="myTodayChange">0</div></div></div><h3>سجل اليوم</h3><div id="myToday"></div><h3>السجل السابق</h3><div id="myHistory"></div></div>
 </div>
 </section>
@@ -56,7 +61,7 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 const SUPABASE_URL='https://gyzlbhrmuhjlnkzulcjq.supabase.co';
 const SUPABASE_KEY='sb_publishable_SKEbkR5RNZTB_Dxa2FDoZw_csWLR6yv';
 const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
-let db={profiles:[],branches:[],events:[]},current=null;
+let db={profiles:[],branches:[],events:[],rewards:[]},current=null;
 const $=id=>document.getElementById(id);
 function today(){return new Date().toLocaleDateString('en-CA')}
 function toast(m){let t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
@@ -65,7 +70,7 @@ function fmtTime(i){return new Date(i).toLocaleString('ar-EG')}
 async function loadAll(){
  const [p,b,e]=await Promise.all([sb.from('profiles').select('*').order('created_at'),sb.from('branches').select('*').order('created_at'),sb.from('events').select('*').order('created_at',{ascending:false})]);
  if(p.error||b.error||e.error){toast('تعذر تحميل البيانات');console.error(p.error||b.error||e.error);return}
- db.profiles=p.data;db.branches=b.data;db.events=e.data}
+ db.profiles=p.data;db.branches=b.data;db.events=e.data;const rw=await sb.from('rewards').select('*');db.rewards=rw.error?[]:rw.data}
 const emps=()=>db.profiles.filter(x=>x.role==='employee'&&x.active);
 function branchName(id){return db.branches.find(b=>b.id===id)?.name||'بدون فرع'}
 function employeeScore(id){return 100+db.events.filter(e=>e.type==='employee'&&e.emp_id===id).reduce((s,e)=>s+Number(e.points||0),0)}
@@ -89,17 +94,33 @@ function openApp(){
  if(current.role==='admin'){$('adminPanel').classList.remove('hidden');$('employeePanel').classList.add('hidden');showAdmin('overview')}
  else{$('employeePanel').classList.remove('hidden');$('adminPanel').classList.add('hidden');showEmployee('empOverview')}}
 async function logout(){await sb.auth.signOut();current=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('loginPass').value=''}
-function showAdmin(id){['overview','employees','branches','evaluate','history','settings'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshAdmin()}
+function showAdmin(id){['overview','employees','branches','evaluate','history','rewards','settings'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshAdmin()}
 function showEmployee(id){['empOverview','empHistory'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshEmployee()}
 function isAdmin(){if(!current||current.role!=='admin'){alert('هذه الصلاحية للأدمن فقط');return false}return true}
-function rankingHtml(){return [...emps()].sort((a,b)=>employeeScore(b.id)-employeeScore(a.id)).map((e,i)=>`<div class="listitem"><div><strong>${i+1}. ${esc(e.name)}</strong><div class="muted small">${esc(branchName(e.branch_id))} · ${esc(e.username)}</div></div><strong>${employeeScore(e.id)} نقطة</strong></div>`).join('')||'<p class="muted">لم تتم إضافة موظفين بعد.</p>'}
+const MEDALS=['🥇','🥈','🥉'];
+function rewardHtml(scope,rank){const r=db.rewards.find(x=>x.scope===scope&&x.rank===rank);return r?`<div><span class="reward">${r.kind==='money'?'💰':'🎁'} ${esc(r.value)}</span></div>`:''}
+function rankCards(items,scope){
+ let r=0;items.forEach((x,i)=>{if(i===0||x.score!==items[i-1].score)r=i+1;x.rank=r;x.active=x.score>100});
+ return items.map(x=>{const top=x.active&&x.rank<=3;return `<div class="rk ${top?'rk'+x.rank:''}"><div class="rkn">${top?'<span class="medal">'+MEDALS[x.rank-1]+'</span> ':''}${x.rank}</div><div class="rki"><strong>${esc(x.name)}</strong><div class="muted small">${esc(x.sub)}</div>${x.active?rewardHtml(scope,x.rank):''}</div><div class="rks">${x.score} نقطة</div></div>`}).join('')}
+function rankingHtml(){return rankCards(emps().map(e=>({name:e.name,sub:branchName(e.branch_id)+' · '+e.username,score:employeeScore(e.id)})).sort((a,b)=>b.score-a.score),'employee')||'<p class="muted">لم تتم إضافة موظفين بعد.</p>'}
+function rewardListHtml(){return [...db.rewards].sort((a,b)=>a.scope.localeCompare(b.scope)||a.rank-b.rank).map(r=>`<div class="listitem"><div><strong>${r.scope==='branch'?'الفروع':'الموظفين'} — المركز ${r.rank}</strong><div>${r.kind==='money'?'💰':'🎁'} ${esc(r.value)}</div></div><button class="danger" style="width:auto" onclick="deleteReward('${r.id}')">حذف</button></div>`).join('')||'<p class="muted">لم تُضف مكافآت بعد.</p>'}
+async function saveReward(){
+ if(!isAdmin())return;const scope=$('rwScope').value,rank=Number($('rwRank').value),kind=$('rwKind').value,value=$('rwValue').value.trim();
+ if(!value)return alert('اكتب المكافأة');
+ const {error}=await sb.from('rewards').upsert({scope,rank,kind,value},{onConflict:'scope,rank'});
+ if(error)return alert('تعذر الحفظ. اتأكد إنك شغّلت كود SQL الخاص بالمكافآت. '+error.message);
+ $('rwValue').value='';await loadAll();refreshAdmin();toast('تم حفظ المكافأة')}
+async function deleteReward(id){
+ if(!isAdmin()||!confirm('حذف المكافأة؟'))return;
+ const {error}=await sb.from('rewards').delete().eq('id',id);
+ if(error)return alert('تعذر الحذف');await loadAll();refreshAdmin()}
 function branchesHtml(){return [...db.branches].sort((a,b)=>branchScore(b.id)-branchScore(a.id)).map((b,i)=>`<div class="listitem"><div><strong>${i+1}. ${esc(b.name)}</strong><div class="muted small">${db.events.filter(e=>e.type==='branch'&&e.branch_id===b.id).length} تقييم</div></div><strong>${branchScore(b.id)} نقطة</strong></div>`).join('')||'<p class="muted">لم تتم إضافة فروع بعد.</p>'}
 function targetName(e){if(e.type==='branch')return db.branches.find(b=>b.id===e.branch_id)?.name||e.target_name||'فرع محذوف';return db.profiles.find(x=>x.id===e.emp_id)?.name||e.target_name||'موظف محذوف'}
 function evBranch(e){if(e.type!=='employee')return '—';let p=db.profiles.find(x=>x.id===e.emp_id);return p?branchName(p.branch_id):'—'}
 function pts(e){let n=Number(e.points);return `<strong class="${n>=0?'positive':'negative'}">${n>0?'+':''}${n} نقطة</strong>`}
 function publicHistoryHtml(){return db.events.map(e=>`<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div>${pts(e)}</div>`).join('')||'<p class="muted">لا توجد تقييمات حتى الآن.</p>'}
 function adminEventHtml(e){return `<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div><div>${pts(e)}<div class="actions"><button class="secondary" onclick="editEvaluation('${e.id}')">تعديل</button><button class="danger" onclick="deleteEvaluation('${e.id}')">حذف</button></div></div></div>`}
-function refreshAdmin(){renderBoard('boardAdmin');
+function refreshAdmin(){if($('rewardList'))$('rewardList').innerHTML=rewardListHtml();renderBoard('boardAdmin');
  if(!current||current.role!=='admin')return;
  $('employeeCount').textContent=emps().length;$('branchCount').textContent=db.branches.length;
  $('eventCount').textContent=db.events.filter(e=>e.day===today()).length;
@@ -224,8 +245,8 @@ function renderBoard(id){
  let mine='';
  if(current.role==='employee'){
   mine='<div class="row">'+['day','week','month'].map(k=>{const s=standings(k,board.date),m=s.rows.find(x=>x.e.id===current.id);return `<div class="card"><div class="muted small">مركزك ${periodNames[k]}</div><div class="stat">${m?(medal(m)||'')+' '+m.rank:'—'}<span class="muted small"> من ${s.rows.length}</span></div><div class="muted small">${m?m.p:0} نقطة</div></div>`}).join('')+'</div>'}
- const body=rows.map(r=>`<tr class="${current.id===r.e.id?'me':''}"><td><span class="medal">${medal(r)}</span> ${r.rank}</td><td>${esc(r.e.name)}</td><td>${esc(branchName(r.e.branch_id))}</td><td class="${r.p>=0?'positive':'negative'}">${r.p>0?'+':''}${r.p}</td></tr>`).join('');
- box.innerHTML=`<h3>🏆 جدول المراكز</h3><div class="bar">${tabs}</div><div class="bar"><button class="ghost" onclick="shiftBoard(-1)">السابق ▶</button><input type="date" value="${board.date}" onchange="setBoardDate(this.value)"><button class="ghost" onclick="shiftBoard(1)">◀ التالي</button><button class="secondary" onclick="setBoardDate(today())">اليوم</button></div><p class="muted small">الفترة: من ${a} إلى ${b} — الترتيب حسب النقاط المكتسبة في الفترة فقط.</p>${mine}<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>المركز</th><th>الموظف</th><th>الفرع</th><th>نقاط الفترة</th></tr></thead><tbody>${body||'<tr><td colspan="4" class="muted">لا يوجد موظفون.</td></tr>'}</tbody></table></div>`}
+ const body=rows.map(r=>`<tr class="${current.id===r.e.id?'me':''}"><td><span class="medal">${medal(r)}</span> ${r.rank}</td><td>${esc(r.e.name)}</td><td>${esc(branchName(r.e.branch_id))}</td><td class="${r.p>=0?'positive':'negative'}">${r.p>0?'+':''}${r.p}</td><td>${r.p>0?rewardHtml('employee',r.rank):''}</td></tr>`).join('');
+ box.innerHTML=`<h3>🏆 جدول المراكز</h3><div class="bar">${tabs}</div><div class="bar"><button class="ghost" onclick="shiftBoard(-1)">السابق ▶</button><input type="date" value="${board.date}" onchange="setBoardDate(this.value)"><button class="ghost" onclick="shiftBoard(1)">◀ التالي</button><button class="secondary" onclick="setBoardDate(today())">اليوم</button></div><p class="muted small">الفترة: من ${a} إلى ${b} — الترتيب حسب النقاط المكتسبة في الفترة فقط.</p>${mine}<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>المركز</th><th>الموظف</th><th>الفرع</th><th>نقاط الفترة</th><th>المكافأة</th></tr></thead><tbody>${body||'<tr><td colspan="5" class="muted">لا يوجد موظفون.</td></tr>'}</tbody></table></div>`}
 (async()=>{const {data}=await sb.auth.getSession();if(data.session)await startSession(data.session.user)})();
 setInterval(async()=>{if(current){await loadAll();current.role==='admin'?refreshAdmin():refreshEmployee()}},30000);
 </script>
