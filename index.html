@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>نظام تقييم الموظفين والفروع</title>
+<style>
+:root{--bg:#f4f6fb;--card:#fff;--ink:#172033;--muted:#6b7280;--primary:#3858d6;--green:#15945b;--red:#d33d52;--border:#e4e8f0}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);font-family:system-ui,-apple-system,"Segoe UI",Tahoma,Arial;color:var(--ink)}
+header{background:linear-gradient(135deg,#243b8f,#536ee6);color:#fff;padding:24px 18px}header .wrap{max-width:1100px;margin:auto}h1{font-size:24px;margin:0 0 6px}header p{margin:0;opacity:.9}
+main{max-width:1100px;margin:22px auto;padding:0 14px}.card{background:var(--card);border:1px solid var(--border);border-radius:16px;padding:18px;margin-bottom:16px;box-shadow:0 5px 18px #16244a08}
+.row{display:flex;gap:12px;flex-wrap:wrap}.row>*{flex:1;min-width:180px}
+input,select,textarea,button{font:inherit;border-radius:10px;padding:11px;border:1px solid var(--border);width:100%}
+button{border:0;background:var(--primary);color:#fff;cursor:pointer;font-weight:700}button.secondary{background:#e9edff;color:#273eaa}button.danger{background:#d33d52}button.ghost{background:#eef1f6;color:#273044}
+label{display:block;font-size:14px;color:var(--muted);margin:8px 0 5px}.muted{color:var(--muted)}.hidden{display:none!important}
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}.tabs button{width:auto;padding:9px 14px}
+.stat{font-size:30px;font-weight:800}.positive{color:var(--green)}.negative{color:var(--red)}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{text-align:right;padding:10px;border-bottom:1px solid var(--border);font-size:14px}th{color:var(--muted)}
+.listitem{border:1px solid var(--border);border-radius:12px;padding:12px;margin:8px 0;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.small{font-size:12px}.notice{background:#fff7df;border:1px solid #f2df9d;padding:12px;border-radius:12px;color:#6e5510}
+.actions{display:flex;gap:6px;flex-wrap:wrap}.actions button{width:auto;padding:7px 10px}.badge{display:inline-block;background:#eef1ff;color:#293fa9;padding:4px 8px;border-radius:999px;font-size:12px}
+@media(max-width:600px){header{padding:18px}h1{font-size:20px}.card{padding:14px}.listitem{align-items:flex-start;flex-direction:column}table{display:block;overflow:auto}.tabs button{flex:1}}
+button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);background:#172033;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:9;opacity:0;transition:opacity .25s;pointer-events:none}#toast.show{opacity:1}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<header><div class="wrap"><h1>نظام تقييم الموظفين والفروع</h1><p>البيانات محفوظة أونلاين ومتاحة من أي جهاز</p></div></header>
+<main>
+<section id="login" class="card">
+<h2>تسجيل الدخول</h2>
+<div class="row"><div><label>اسم المستخدم</label><input id="loginUser" autocomplete="username" placeholder="Username"></div><div><label>كلمة المرور</label><input id="loginPass" type="password" autocomplete="current-password" placeholder="Password"></div></div>
+<button id="loginBtn" style="margin-top:12px" onclick="login()">دخول</button>
+<p class="muted small">الأدمن يدخل بإيميله. الموظفون حسابات مشاهدة فقط، والأدمن هو اللي بيضيفهم.</p>
+</section>
+<section id="app" class="hidden">
+<div class="card row" style="align-items:center"><div><strong id="welcome"></strong><div class="muted small" id="role"></div></div><button class="ghost" style="max-width:130px" onclick="logout()">تسجيل خروج</button></div>
+<div id="adminPanel" class="hidden">
+<div class="tabs"><button onclick="showAdmin('overview')">الرئيسية</button><button onclick="showAdmin('employees')">الموظفون</button><button onclick="showAdmin('branches')">الفروع</button><button onclick="showAdmin('evaluate')">إضافة تقييم</button><button onclick="showAdmin('history')">سجل تقييماتي</button><button onclick="showAdmin('settings')">الإعدادات</button></div>
+<div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><h3>ترتيب جميع الموظفين</h3><div id="ranking"></div><h3>ترتيب جميع الفروع</h3><div id="branchRanking"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
+<div id="employees" class="card hidden"><h2>إدارة الموظفين</h2><div class="row"><div><label>اسم الموظف</label><input id="newName" placeholder="الاسم"></div><div><label>Username</label><input id="newUser" placeholder="اسم الدخول"></div><div><label>Password (6 أحرف على الأقل)</label><input id="newPass" placeholder="كلمة المرور"></div><div><label>الفرع</label><select id="newBranch"></select></div></div><button style="margin-top:10px" onclick="addEmployee()">إضافة موظف</button><div id="employeeList"></div></div>
+<div id="branches" class="card hidden"><h2>إدارة الفروع</h2><div class="row"><div><label>اسم الفرع الجديد</label><input id="newBranchName" placeholder="اسم الفرع"></div><div style="align-self:end"><button onclick="addBranch()">إضافة فرع</button></div></div><div id="branchList"></div></div>
+<div id="evaluate" class="card hidden"><h2>إضافة تقييم</h2><div class="row"><div><label>نوع التقييم</label><select id="evalType" onchange="updateEvalTarget()"><option value="employee">موظف</option><option value="branch">فرع</option></select></div><div><label>الموظف / الفرع</label><select id="evalTarget"></select></div><div><label>النقاط (+ أو -)</label><input id="points" type="number" value="5"></div></div><label>سبب التقييم</label><input id="reason" placeholder="مثلاً: الالتزام / خطأ / إنجاز"><button style="margin-top:10px" onclick="addEvaluation()">حفظ التقييم</button></div>
+<div id="history" class="card hidden"><h2>سجل تقييماتي (الأدمن)</h2><p class="muted small">التقييمات التي أنشأتها مرتبة من الأحدث للأقدم. يمكنك تعديلها أو حذفها.</p><div id="adminHistory"></div></div>
+<div id="settings" class="card hidden"><h2>إعدادات الأدمن</h2><div class="row"><div><label>كلمة المرور الجديدة</label><input id="adminNewPass" type="password"></div><div style="align-self:end"><button onclick="changeAdminPass()">تغيير كلمة المرور</button></div></div><p class="notice small">البيانات محفوظة على سيرفر Supabase، فمش بتضيع لو مسحت بيانات المتصفح.</p></div>
+</div>
+<div id="employeePanel" class="hidden">
+<div class="tabs"><button onclick="showEmployee('empOverview')">الترتيب العام</button><button onclick="showEmployee('empHistory')">تقييماتي</button></div>
+<div id="empOverview" class="card"><h2>ترتيب الموظفين والفروع</h2><p class="notice small">حساب مشاهدة فقط: يمكنك الاطلاع على ترتيب الجميع ونتائج الفروع، ولا يمكنك إضافة أو تعديل أو حذف أي تقييم.</p><h3>ترتيب جميع الموظفين</h3><div id="employeeRankingPublic"></div><h3>ترتيب جميع الفروع</h3><div id="branchRankingPublic"></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistoryEmployee"></div></div>
+<div id="empHistory" class="card hidden"><h2>تقييماتي</h2><div class="row"><div><div class="muted">إجمالي النقاط</div><div class="stat" id="myScore">100</div></div><div><div class="muted">تغييرات اليوم</div><div class="stat" id="myTodayChange">0</div></div></div><h3>سجل اليوم</h3><div id="myToday"></div><h3>السجل السابق</h3><div id="myHistory"></div></div>
+</div>
+</section>
+</main>
+<div id="toast"></div>
+<script>
+const SUPABASE_URL='https://gyzlbhrmuhjlnkzulcjq.supabase.co';
+const SUPABASE_KEY='sb_publishable_SKEbkR5RNZTB_Dxa2FDoZw_csWLR6yv';
+const sb=supabase.createClient(SUPABASE_URL,SUPABASE_KEY);
+let db={profiles:[],branches:[],events:[]},current=null;
+const $=id=>document.getElementById(id);
+function today(){return new Date().toLocaleDateString('en-CA')}
+function toast(m){let t=$('toast');t.textContent=m;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2500)}
+function esc(s){return String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+function fmtTime(i){return new Date(i).toLocaleString('ar-EG')}
+async function loadAll(){
+ const [p,b,e]=await Promise.all([sb.from('profiles').select('*').order('created_at'),sb.from('branches').select('*').order('created_at'),sb.from('events').select('*').order('created_at',{ascending:false})]);
+ if(p.error||b.error||e.error){toast('تعذر تحميل البيانات');console.error(p.error||b.error||e.error);return}
+ db.profiles=p.data;db.branches=b.data;db.events=e.data}
+const emps=()=>db.profiles.filter(x=>x.role==='employee'&&x.active);
+function branchName(id){return db.branches.find(b=>b.id===id)?.name||'بدون فرع'}
+function employeeScore(id){return 100+db.events.filter(e=>e.type==='employee'&&e.emp_id===id).reduce((s,e)=>s+Number(e.points||0),0)}
+function branchScore(id){return 100+db.events.filter(e=>e.type==='branch'&&e.branch_id===id).reduce((s,e)=>s+Number(e.points||0),0)}
+async function login(){
+ const u=$('loginUser').value.trim().toLowerCase(),p=$('loginPass').value;
+ if(!u||!p)return toast('اكتب اسم المستخدم وكلمة المرور');
+ const btn=$('loginBtn');btn.disabled=true;
+ const {data,error}=await sb.auth.signInWithPassword({email:u.includes('@')?u:u+'@app.local',password:p});
+ btn.disabled=false;
+ if(error)return alert('بيانات الدخول غير صحيحة');
+ await startSession(data.user)}
+async function startSession(user){
+ const {data,error}=await sb.from('profiles').select('*').eq('id',user.id).single();
+ if(error||!data||!data.active){await sb.auth.signOut();return alert('الحساب غير مفعّل أو غير موجود')}
+ current=data;await loadAll();openApp()}
+function openApp(){
+ $('login').classList.add('hidden');$('app').classList.remove('hidden');
+ $('welcome').textContent='أهلاً، '+current.name;
+ $('role').textContent=current.role==='admin'?'حساب الأدمن':'حساب الموظف';
+ if(current.role==='admin'){$('adminPanel').classList.remove('hidden');$('employeePanel').classList.add('hidden');showAdmin('overview')}
+ else{$('employeePanel').classList.remove('hidden');$('adminPanel').classList.add('hidden');showEmployee('empOverview')}}
+async function logout(){await sb.auth.signOut();current=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('loginPass').value=''}
+function showAdmin(id){['overview','employees','branches','evaluate','history','settings'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshAdmin()}
+function showEmployee(id){['empOverview','empHistory'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshEmployee()}
+function isAdmin(){if(!current||current.role!=='admin'){alert('هذه الصلاحية للأدمن فقط');return false}return true}
+function rankingHtml(){return [...emps()].sort((a,b)=>employeeScore(b.id)-employeeScore(a.id)).map((e,i)=>`<div class="listitem"><div><strong>${i+1}. ${esc(e.name)}</strong><div class="muted small">${esc(branchName(e.branch_id))} · ${esc(e.username)}</div></div><strong>${employeeScore(e.id)} نقطة</strong></div>`).join('')||'<p class="muted">لم تتم إضافة موظفين بعد.</p>'}
+function branchesHtml(){return [...db.branches].sort((a,b)=>branchScore(b.id)-branchScore(a.id)).map((b,i)=>`<div class="listitem"><div><strong>${i+1}. ${esc(b.name)}</strong><div class="muted small">${db.events.filter(e=>e.type==='branch'&&e.branch_id===b.id).length} تقييم</div></div><strong>${branchScore(b.id)} نقطة</strong></div>`).join('')||'<p class="muted">لم تتم إضافة فروع بعد.</p>'}
+function targetName(e){if(e.type==='branch')return db.branches.find(b=>b.id===e.branch_id)?.name||e.target_name||'فرع محذوف';return db.profiles.find(x=>x.id===e.emp_id)?.name||e.target_name||'موظف محذوف'}
+function evBranch(e){if(e.type!=='employee')return '—';let p=db.profiles.find(x=>x.id===e.emp_id);return p?branchName(p.branch_id):'—'}
+function pts(e){let n=Number(e.points);return `<strong class="${n>=0?'positive':'negative'}">${n>0?'+':''}${n} نقطة</strong>`}
+function publicHistoryHtml(){return db.events.map(e=>`<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div>${pts(e)}</div>`).join('')||'<p class="muted">لا توجد تقييمات حتى الآن.</p>'}
+function adminEventHtml(e){return `<div class="listitem"><div><strong>${e.type==='branch'?'تقييم فرع':'تقييم موظف'}: ${esc(targetName(e))}</strong><div class="muted small">${esc(evBranch(e))} · ${esc(e.day)} ${esc(fmtTime(e.created_at))}</div><div>${esc(e.reason)}</div></div><div>${pts(e)}<div class="actions"><button class="secondary" onclick="editEvaluation('${e.id}')">تعديل</button><button class="danger" onclick="deleteEvaluation('${e.id}')">حذف</button></div></div></div>`}
+function refreshAdmin(){
+ if(!current||current.role!=='admin')return;
+ $('employeeCount').textContent=emps().length;$('branchCount').textContent=db.branches.length;
+ $('eventCount').textContent=db.events.filter(e=>e.day===today()).length;
+ $('ranking').innerHTML=rankingHtml();$('branchRanking').innerHTML=branchesHtml();$('publicHistory').innerHTML=publicHistoryHtml();
+ $('employeeList').innerHTML=emps().map(e=>`<div class="listitem"><div><strong>${esc(e.name)}</strong><div class="muted small">Username: ${esc(e.username)} · الفرع: ${esc(branchName(e.branch_id))}</div></div><div class="actions"><button class="secondary" onclick="editEmployee('${e.id}')">تعديل</button><button class="ghost" onclick="resetEmployeePass('${e.id}')">كلمة مرور جديدة</button><button class="danger" onclick="removeEmployee('${e.id}')">حذف</button></div></div>`).join('')||'<p class="muted">لا يوجد موظفون.</p>';
+ $('newBranch').innerHTML='<option value="">بدون فرع</option>'+db.branches.map(b=>`<option value="${b.id}">${esc(b.name)}</option>`).join('');
+ $('branchList').innerHTML=db.branches.map(b=>`<div class="listitem"><div><strong>${esc(b.name)}</strong><div class="muted small">عدد الموظفين: ${emps().filter(e=>e.branch_id===b.id).length}</div></div><div class="actions"><button class="secondary" onclick="editBranch('${b.id}')">تعديل</button><button class="danger" onclick="removeBranch('${b.id}')">حذف</button></div></div>`).join('')||'<p class="muted">لا توجد فروع.</p>';
+ updateEvalTarget();
+ $('adminHistory').innerHTML=db.events.map(adminEventHtml).join('')||'<p class="muted">لا توجد تقييمات حتى الآن.</p>'}
+function updateEvalTarget(){let list=$('evalType').value==='branch'?db.branches:emps();$('evalTarget').innerHTML=list.map(x=>`<option value="${x.id}">${esc(x.name)}</option>`).join('')}
+async function addEmployee(){
+ if(!isAdmin())return;
+ let name=$('newName').value.trim(),user=$('newUser').value.trim().toLowerCase(),pass=$('newPass').value.trim(),branch=$('newBranch').value||null;
+ if(!name||!user||!pass)return alert('اكتب الاسم واسم المستخدم وكلمة المرور');
+ if(!/^[a-z0-9_.-]+$/.test(user))return alert('اسم المستخدم حروف إنجليزي وأرقام فقط');
+ if(pass.length<6)return alert('كلمة المرور 6 أحرف على الأقل');
+ const {error}=await sb.rpc('admin_create_employee',{p_name:name,p_username:user,p_password:pass,p_branch:branch});
+ if(error)return alert(error.message.includes('username exists')?'اسم المستخدم مستخدم بالفعل':'تعذر إضافة الموظف: '+error.message);
+ ['newName','newUser','newPass'].forEach(id=>$(id).value='');
+ await loadAll();refreshAdmin();toast('تمت إضافة الموظف')}
+async function editEmployee(id){
+ let e=db.profiles.find(x=>x.id===id);if(!e)return;
+ let name=prompt('اسم الموظف',e.name);if(name===null)return;
+ let n=prompt('اكتب رقم الفرع الجديد (0 = بدون فرع، سيبه فاضي = من غير تغيير)\n'+db.branches.map((b,i)=>(i+1)+') '+b.name).join('\n'),'');
+ let upd={name:name.trim()||e.name};
+ if(n!==null&&n.trim()!==''){let k=Number(n);upd.branch_id=k===0?null:(db.branches[k-1]?.id??e.branch_id)}
+ const {error}=await sb.from('profiles').update(upd).eq('id',id);
+ if(error)return alert('تعذر التعديل');
+ await loadAll();refreshAdmin();toast('تم التعديل')}
+async function resetEmployeePass(id){
+ if(!isAdmin())return;let p=prompt('كلمة المرور الجديدة (6 أحرف على الأقل)');if(!p)return;
+ const {error}=await sb.rpc('admin_set_password',{p_id:id,p_password:p.trim()});
+ if(error)return alert('تعذر التغيير: '+error.message);toast('تم تغيير كلمة المرور')}
+async function removeEmployee(id){
+ if(!isAdmin())return;
+ if(!confirm('حذف الموظف؟ سيظل سجل تقييماته محفوظًا لكن لن يظهر في الترتيب.'))return;
+ const {error}=await sb.rpc('admin_delete_employee',{p_id:id});
+ if(error)return alert('تعذر الحذف: '+error.message);
+ await loadAll();refreshAdmin();toast('تم الحذف')}
+async function addBranch(){
+ if(!isAdmin())return;let name=$('newBranchName').value.trim();if(!name)return alert('اكتب اسم الفرع');
+ const {error}=await sb.from('branches').insert({name});
+ if(error)return alert(error.code==='23505'?'الفرع موجود بالفعل':'تعذر الإضافة');
+ $('newBranchName').value='';await loadAll();refreshAdmin();toast('تمت إضافة الفرع')}
+async function editBranch(id){
+ let b=db.branches.find(x=>x.id===id);if(!b)return;let n=prompt('اسم الفرع',b.name);if(!n||!n.trim())return;
+ const {error}=await sb.from('branches').update({name:n.trim()}).eq('id',id);
+ if(error)return alert('تعذر التعديل');await loadAll();refreshAdmin()}
+async function removeBranch(id){
+ if(!isAdmin())return;
+ if(!confirm('حذف الفرع؟ سيتم إلغاء ربط الموظفين به، وستبقى التقييمات في السجل.'))return;
+ let b=db.branches.find(x=>x.id===id);
+ await sb.from('events').update({target_name:b?.name}).eq('branch_id',id).is('target_name',null);
+ const {error}=await sb.from('branches').delete().eq('id',id);
+ if(error)return alert('تعذر الحذف');await loadAll();refreshAdmin()}
+function nameFor(type,id){return type==='branch'?db.branches.find(b=>b.id===id)?.name:db.profiles.find(p=>p.id===id)?.name}
+async function addEvaluation(){
+ if(!isAdmin())return;
+ let type=$('evalType').value,target=$('evalTarget').value,points=Number($('points').value),reason=$('reason').value.trim();
+ if(!target||!reason||!Number.isFinite(points))return alert('اختار الهدف واكتب النقاط والسبب');
+ let row={type,points,reason,day:today(),created_by:current.id,target_name:nameFor(type,target)};
+ if(type==='employee')row.emp_id=target;else row.branch_id=target;
+ const {error}=await sb.from('events').insert(row);
+ if(error)return alert('تعذر حفظ التقييم');
+ $('reason').value='';await loadAll();refreshAdmin();toast('تم حفظ التقييم')}
+async function editEvaluation(id){
+ if(!isAdmin())return;let e=db.events.find(x=>x.id===id);if(!e)return;
+ let p=prompt('النقاط (+ أو -)',e.points);if(p===null)return;let r=prompt('سبب التقييم',e.reason);if(r===null)return;
+ if(!Number.isFinite(Number(p))||!r.trim())return alert('القيم غير صحيحة');
+ const {error}=await sb.from('events').update({points:Number(p),reason:r.trim(),edited_at:new Date().toISOString()}).eq('id',id);
+ if(error)return alert('تعذر التعديل');await loadAll();refreshAdmin()}
+async function deleteEvaluation(id){
+ if(!isAdmin())return;if(!confirm('هل تريد حذف التقييم نهائيًا؟'))return;
+ const {error}=await sb.from('events').delete().eq('id',id);
+ if(error)return alert('تعذر الحذف');await loadAll();refreshAdmin()}
+function eventHtml(e){return `<div class="listitem"><div><strong>${esc(e.reason)}</strong><div class="muted small">${esc(e.day)} — ${esc(fmtTime(e.created_at))}</div></div>${pts(e)}</div>`}
+function refreshEmployee(){
+ if(!current||current.role!=='employee')return;
+ $('employeeRankingPublic').innerHTML=rankingHtml();$('branchRankingPublic').innerHTML=branchesHtml();$('publicHistoryEmployee').innerHTML=publicHistoryHtml();
+ let mine=db.events.filter(e=>e.type==='employee'&&e.emp_id===current.id),td=mine.filter(e=>e.day===today()),old=mine.filter(e=>e.day!==today());
+ $('myScore').textContent=employeeScore(current.id);
+ let ch=td.reduce((s,e)=>s+Number(e.points||0),0);$('myTodayChange').textContent=(ch>0?'+':'')+ch;
+ $('myToday').innerHTML=td.map(eventHtml).join('')||'<p class="muted">لا توجد تقييمات اليوم حتى الآن.</p>';
+ $('myHistory').innerHTML=old.map(eventHtml).join('')||'<p class="muted">لا يوجد سجل سابق.</p>'}
+async function changeAdminPass(){
+ if(!isAdmin())return;let p=$('adminNewPass').value.trim();if(p.length<6)return alert('كلمة المرور 6 أحرف على الأقل');
+ const {error}=await sb.auth.updateUser({password:p});
+ if(error)return alert('تعذر التغيير: '+error.message);$('adminNewPass').value='';toast('تم تغيير كلمة المرور')}
+(async()=>{const {data}=await sb.auth.getSession();if(data.session)await startSession(data.session.user)})();
+setInterval(async()=>{if(current){await loadAll();current.role==='admin'?refreshAdmin():refreshEmployee()}},30000);
+</script>
+</body></html>
