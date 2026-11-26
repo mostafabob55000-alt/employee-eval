@@ -26,6 +26,8 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 .rk1{background:linear-gradient(90deg,#fff6d6,#fff);border-color:#e8c547}.rk2{background:linear-gradient(90deg,#eef0f4,#fff);border-color:#b8bec9}.rk3{background:linear-gradient(90deg,#fbece0,#fff);border-color:#cd8a52}
 .reward{display:inline-block;margin-top:4px;background:#e9f7ef;color:#116b43;border-radius:999px;padding:3px 10px;font-size:13px;font-weight:700}
 .thumb{display:block;margin-top:8px;max-width:160px;max-height:120px;border-radius:10px;border:1px solid var(--border);object-fit:cover}
+#alertBox{position:fixed;top:12px;left:50%;transform:translateX(-50%);width:min(92vw,520px);background:#172033;color:#fff;border-radius:14px;padding:14px 16px;z-index:20;box-shadow:0 10px 30px #0006;font-size:15px;cursor:pointer}
+#notifPanel{position:fixed;inset:0;background:#0007;z-index:19;overflow:auto;padding:16px}#notifPanel .card{max-width:560px;margin:20px auto}.listitem.new{border-color:#3858d6;background:#eef2ff}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -39,7 +41,7 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 <p class="muted small">الأدمن يدخل بإيميله. الموظفون حسابات مشاهدة فقط، والأدمن هو اللي بيضيفهم.</p>
 </section>
 <section id="app" class="hidden">
-<div class="card row" style="align-items:center"><div><strong id="welcome"></strong><div class="muted small" id="role"></div></div><button class="ghost" style="max-width:130px" onclick="logout()">تسجيل خروج</button></div>
+<div class="card row" style="align-items:center"><div><strong id="welcome"></strong><div class="muted small" id="role"></div></div><button id="bellBtn" class="ghost hidden" style="max-width:150px" onclick="openNotifs()">🔔 إشعاراتي<span id="bellCount"></span></button><button class="ghost" style="max-width:130px" onclick="logout()">تسجيل خروج</button></div>
 <div id="adminPanel" class="hidden">
 <div class="tabs"><button onclick="showAdmin('overview')">الرئيسية</button><button onclick="showAdmin('employees')">الموظفون</button><button onclick="showAdmin('branches')">الفروع</button><button onclick="showAdmin('evaluate')">إضافة تقييم</button><button onclick="showAdmin('history')">سجل تقييماتي</button><button onclick="showAdmin('rewards')">🎁 المكافآت</button><button onclick="showAdmin('settings')">الإعدادات</button></div>
 <div id="overview" class="card"><h2>لوحة الترتيب العامة</h2><div class="row"><div class="card"><div class="muted">عدد الموظفين</div><div class="stat" id="employeeCount">0</div></div><div class="card"><div class="muted">عدد الفروع</div><div class="stat" id="branchCount">0</div></div><div class="card"><div class="muted">تقييمات اليوم</div><div class="stat" id="eventCount">0</div></div></div><div id="boardAdmin"></div><div class="cols"><div><h3>🏅 ترتيب الموظفين</h3><div id="ranking"></div></div><div><h3>🏢 ترتيب الفروع</h3><div id="branchRanking"></div></div></div><h3>سجل تقييمات الموظفين والفروع — كل الأيام</h3><div id="publicHistory"></div></div>
@@ -57,6 +59,8 @@ button:disabled{opacity:.6;cursor:wait}#toast{position:fixed;bottom:18px;left:50
 </div>
 </section>
 </main>
+<div id="alertBox" class="hidden" onclick="this.classList.add('hidden')"></div>
+<div id="notifPanel" class="hidden"><div class="card"><div class="row" style="align-items:center"><h3 style="margin:0">🔔 إشعاراتي</h3><button class="ghost" style="max-width:90px" onclick="closeNotifs()">إغلاق</button></div><button id="permBtn" class="secondary" style="margin:10px 0" onclick="askPerm()">تفعيل إشعارات المتصفح</button><div id="notifList"></div></div></div>
 <div id="toast"></div>
 <script>
 const SUPABASE_URL='https://gyzlbhrmuhjlnkzulcjq.supabase.co';
@@ -93,8 +97,8 @@ function openApp(){
  $('welcome').textContent='أهلاً، '+current.name;
  $('role').textContent=current.role==='admin'?'حساب الأدمن':'حساب الموظف';
  if(current.role==='admin'){$('adminPanel').classList.remove('hidden');$('employeePanel').classList.add('hidden');showAdmin('overview')}
- else{$('employeePanel').classList.remove('hidden');$('adminPanel').classList.add('hidden');showEmployee('empOverview')}}
-async function logout(){await sb.auth.signOut();current=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('loginPass').value=''}
+ else{$('employeePanel').classList.remove('hidden');$('adminPanel').classList.add('hidden');showEmployee('empOverview');initNotifs()}}
+async function logout(){unsubscribeRT();knownMine=null;await sb.auth.signOut();current=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('loginPass').value=''}
 function showAdmin(id){['overview','employees','branches','evaluate','history','rewards','settings'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshAdmin()}
 function showEmployee(id){['empOverview','empHistory'].forEach(x=>$(x).classList.toggle('hidden',x!==id));refreshEmployee()}
 function isAdmin(){if(!current||current.role!=='admin'){alert('هذه الصلاحية للأدمن فقط');return false}return true}
@@ -267,7 +271,40 @@ function renderBoard(id){
   mine='<div class="row">'+['day','week','month'].map(k=>{const s=standings(k,board.date),m=s.rows.find(x=>x.e.id===current.id);return `<div class="card"><div class="muted small">مركزك ${periodNames[k]}</div><div class="stat">${m?(medal(m)||'')+' '+m.rank:'—'}<span class="muted small"> من ${s.rows.length}</span></div><div class="muted small">${m?m.p:0} نقطة</div></div>`}).join('')+'</div>'}
  const body=rows.map(r=>`<tr class="${current.id===r.e.id?'me':''}"><td><span class="medal">${medal(r)}</span> ${r.rank}</td><td>${esc(r.e.name)}</td><td>${esc(branchName(r.e.branch_id))}</td><td class="${r.p>=0?'positive':'negative'}">${r.p>0?'+':''}${r.p}</td><td>${r.p>0?rewardHtml('employee',r.rank):''}</td></tr>`).join('');
  box.innerHTML=`<h3>🏆 جدول المراكز</h3><div class="bar">${tabs}</div><div class="bar"><button class="ghost" onclick="shiftBoard(-1)">السابق ▶</button><input type="date" value="${board.date}" onchange="setBoardDate(this.value)"><button class="ghost" onclick="shiftBoard(1)">◀ التالي</button><button class="secondary" onclick="setBoardDate(today())">اليوم</button></div><p class="muted small">الفترة: من ${a} إلى ${b} — الترتيب حسب النقاط المكتسبة في الفترة فقط.</p>${mine}<div style="overflow-x:auto"><table class="tbl"><thead><tr><th>المركز</th><th>الموظف</th><th>الفرع</th><th>نقاط الفترة</th><th>المكافأة</th></tr></thead><tbody>${body||'<tr><td colspan="5" class="muted">لا يوجد موظفون.</td></tr>'}</tbody></table></div>`}
+
+// ===== الإشعارات =====
+let knownMine=null,rtChan=null,alertTimer=null;
+const myEvents=()=>db.events.filter(e=>e.type==='employee'&&e.emp_id===current.id);
+function unreadCount(){if(!current||current.notif_seen_at===undefined)return 0;const t=current.notif_seen_at?new Date(current.notif_seen_at).getTime():0;return myEvents().filter(e=>new Date(e.created_at).getTime()>t).length}
+function renderBell(){const b=$('bellBtn');if(!b)return;if(!current||current.role!=='employee'){b.classList.add('hidden');return}b.classList.remove('hidden');const n=unreadCount(),c=$('bellCount');c.textContent=n>0?n:'';c.style.cssText=n>0?'background:#d33d52;color:#fff;border-radius:999px;padding:1px 8px;margin-right:6px':''}
+function beep(){try{const c=new (window.AudioContext||window.webkitAudioContext)(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.frequency.value=880;g.gain.setValueAtTime(.25,c.currentTime);g.gain.exponentialRampToValueAtTime(.001,c.currentTime+.6);o.start();o.stop(c.currentTime+.6)}catch(e){}}
+function showAlertText(msg){
+ const a=$('alertBox');a.textContent=msg;a.classList.remove('hidden');beep();
+ try{navigator.vibrate&&navigator.vibrate([200,100,200])}catch(e){}
+ try{if('Notification' in window&&Notification.permission==='granted')new Notification('تقييم جديد',{body:msg})}catch(e){}
+ clearTimeout(alertTimer);alertTimer=setTimeout(()=>a.classList.add('hidden'),15000)}
+function checkNew(){
+ if(!current||current.role!=='employee')return;
+ const mine=myEvents();
+ if(knownMine){const fresh=mine.filter(e=>!knownMine.has(e.id));
+  if(fresh.length){const e=fresh[0],n=Number(e.points);showAlertText('🔔 جاك تقييم جديد: '+(n>0?'+':'')+n+' نقطة — '+e.reason+(fresh.length>1?' (و'+(fresh.length-1)+' تقييمات أخرى)':''))}}
+ knownMine=new Set(mine.map(e=>e.id));renderBell()}
+function subscribeRT(){
+ unsubscribeRT();
+ rtChan=sb.channel('my-evals-'+current.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'events',filter:'emp_id=eq.'+current.id},async()=>{await loadAll();checkNew();refreshEmployee()}).subscribe()}
+function unsubscribeRT(){if(rtChan){sb.removeChannel(rtChan);rtChan=null}}
+function initNotifs(){
+ knownMine=new Set(myEvents().map(e=>e.id));renderBell();subscribeRT();
+ const n=unreadCount();if(n>0)showAlertText('🔔 عندك '+n+' تقييم جديد — اضغط على 🔔 إشعاراتي')}
+async function openNotifs(){
+ const t=current.notif_seen_at?new Date(current.notif_seen_at).getTime():0;
+ $('notifList').innerHTML=[...myEvents()].sort((a,b)=>new Date(b.created_at)-new Date(a.created_at)).slice(0,30).map(e=>{const u=current.notif_seen_at!==undefined&&new Date(e.created_at).getTime()>t;return `<div class="listitem ${u?'new':''}"><div><strong>${u?'🆕 ':''}${esc(e.reason)}</strong><div class="muted small">${esc(e.day)} — ${esc(fmtTime(e.created_at))}</div>${imgHtml(e)}</div>${pts(e)}</div>`}).join('')||'<p class="muted">لا توجد تقييمات حتى الآن.</p>';
+ $('permBtn').classList.toggle('hidden',!('Notification' in window)||Notification.permission!=='default');
+ $('notifPanel').classList.remove('hidden');
+ if(current.notif_seen_at!==undefined){await sb.rpc('mark_seen');current.notif_seen_at=new Date().toISOString();renderBell()}}
+function closeNotifs(){$('notifPanel').classList.add('hidden')}
+async function askPerm(){try{const r=await Notification.requestPermission();$('permBtn').classList.toggle('hidden',r!=='default');if(r==='granted')toast('تم تفعيل إشعارات المتصفح')}catch(e){}}
 (async()=>{const {data}=await sb.auth.getSession();if(data.session)await startSession(data.session.user)})();
-setInterval(async()=>{if(current){await loadAll();current.role==='admin'?refreshAdmin():refreshEmployee()}},30000);
+setInterval(async()=>{if(current){await loadAll();current.role==='admin'?refreshAdmin():(checkNew(),refreshEmployee())}},30000);
 </script>
 </body></html>
